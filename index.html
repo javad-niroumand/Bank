@@ -32,6 +32,7 @@ canvas { width:100% !important; height:100% !important; }
 </head>
 <body>
 <div class="wrap">
+
 <img class="logo" src="https://via.placeholder.com/300x80.png?text=Bank+Logo" alt="Bank Logo">
 
 <div class="card user-info">
@@ -39,7 +40,7 @@ canvas { width:100% !important; height:100% !important; }
 <p id="customerNumber">Kundennummer #—</p>
 </div>
 
-<div class="card">
+<div class="card" id="investmentCard">
 <strong id="investmentTitle">Investitionsaufteilung</strong>
 <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
 <div class="legend" id="pieLegend"></div>
@@ -49,13 +50,14 @@ canvas { width:100% !important; height:100% !important; }
 </div>
 </div>
 
-<div class="card">
+<div class="card" id="roiCard">
 <strong>Rendite über die Zeit</strong>
 <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
 <div class="meta">
 <span>Status: <span id="status">idle</span></span>
 </div>
 </div>
+
 </div>
 
 <script>
@@ -80,60 +82,25 @@ function renderLegend(items){
   });
 }
 
-async function fetchData(){
-  try {
-    const res = await fetch(API_URL, {cache:'no-store'});
-    const data = await res.json();
-    const dataStr = JSON.stringify(data);
-    
-    // SWITCH TO TRANSACTION PAGE WHEN update = true
-    if(data.update && !switched){
-      switched = true;
-      document.documentElement.innerHTML = `
-      <!DOCTYPE html>
-      <html lang="de">
-      <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Bank Transactions</title>
-      <style>
-      body { font-family: Inter, sans-serif; margin:0; background:#0f1724; color:#e6eef8; }
-      .wrap { max-width:420px; margin:0 auto; padding:16px; }
-      .logo { display:block; width:120px; margin:0 auto 20px; }
-      .card { background:#0b1220; border-radius:14px; padding:16px; margin-bottom:16px; box-shadow:0 4px 12px rgba(0,0,0,0.5); }
-      .user-info { text-align:center; }
-      .user-info h2 { margin:0; font-size:20px; }
-      .user-info p { margin:6px 0 0; color:#98a0b3; font-size:14px; }
-      .transaction-list { list-style:none; padding:0; margin:0; }
-      .transaction-item { display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.08); }
-      .transaction-item img { width:32px; height:32px; margin-right:12px; border-radius:6px; background:white; padding:4px; }
-      .transaction-info { display:flex; align-items:center; gap:8px; }
-      .transaction-name { font-size:15px; }
-      .transaction-category { font-size:12px; color:#98a0b3; }
-      .transaction-date { font-size:12px; color:#98a0b3; }
-      .transaction-amount { font-weight:600; }
-      .meta { display:flex; justify-content:space-between; margin-top:8px; font-size:12px; color:#98a0b3; }
-      .btn { background:transparent; border:1px solid rgba(255,255,255,0.06); padding:6px 10px; border-radius:10px; color:#98a0b3; font-size:13px; cursor:pointer; }
-      </style>
-      </head>
-      <body>
-      <div class="wrap">
-        <img class="logo" src="https://www.sskm.de/content/dam/myif/sskm/work/bilder/nbf-logos/logo_weiss.svg" alt="Bank Logo">
-        <div class="card user-info">
-          <h2>${data.user.name}</h2>
-          <p>Kundennummer #${data.user.customerNumber}</p>
-        </div>
-        <div class="card">
-          <strong>Letzte 7 Tage Transaktionen</strong>
-          <ul class="transaction-list" id="transactionList"></ul>
-          <div class="meta">
-            <span>Zuletzt aktualisiert: <span id="lastUpdated">—</span></span>
-            <button class="btn" id="refreshBtn">Aktualisieren</button>
-          </div>
+function renderTransactions(user){
+    const wrap = document.querySelector('.wrap');
+    wrap.innerHTML = `
+      <img class="logo" src="https://www.sskm.de/content/dam/myif/sskm/work/bilder/nbf-logos/logo_weiss.svg" alt="Bank Logo">
+      <div class="card user-info">
+        <h2>${user.name}</h2>
+        <p>Kundennummer #${user.customerNumber}</p>
+      </div>
+      <div class="card">
+        <strong>Letzte 7 Tage Transaktionen</strong>
+        <ul class="transaction-list" id="transactionList"></ul>
+        <div class="meta">
+          <span>Zuletzt aktualisiert: <span id="lastUpdated">—</span></span>
+          <button class="btn" id="refreshBtn">Aktualisieren</button>
         </div>
       </div>
-      <script>
-      const transactions = [
+    `;
+
+    const transactions = [
         {name:'Miete', category:'Rent', amount:1200, date:'2025-11-24', logo:'https://i.etsystatic.com/12773587/r/il/63d810/1121816918/il_570xN.1121816918_nwl8.jpg'},
         {name:'Stromrechnung', category:'Electricity', amount:85, date:'2025-11-23', logo:'https://cdn-icons-png.flaticon.com/512/2910/2910766.png'},
         {name:'Supermarkt', category:'Grocery', amount:145, date:'2025-11-22', logo:'https://cdn-icons-png.flaticon.com/512/1046/1046784.png'},
@@ -142,47 +109,55 @@ async function fetchData(){
         {name:'Restaurant Sushi Bar', category:'Food', amount:65, date:'2025-11-23', logo:'https://cdn-icons-png.flaticon.com/512/1046/1046771.png'},
         {name:'Tankstelle', category:'Fuel', amount:60, date:'2025-11-22', logo:'https://cdn-icons-png.flaticon.com/512/3075/3075977.png'},
         {name:'Online Shop', category:'Shopping', amount:120, date:'2025-11-21', logo:'https://cdn-icons-png.flaticon.com/512/1170/1170678.png'}
-      ];
-      function formatCurrency(n){ return '€'+n.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2}); }
-      function renderTransactions(){
+    ];
+
+    function renderList(){
         const container = document.getElementById('transactionList');
         container.innerHTML = '';
         transactions.forEach(t=>{
-          const li = document.createElement('li');
-          li.className = 'transaction-item';
-          li.innerHTML = \`
-            <div class="transaction-info">
-              <img src="\${t.logo}" alt="\${t.category}">
-              <div>
-                <div class="transaction-name">\${t.name}</div>
-                <div class="transaction-category">\${t.category} • <span class="transaction-date">\${t.date}</span></div>
-              </div>
-            </div>
-            <div class="transaction-amount">\${formatCurrency(t.amount)}</div>
-          \`;
-          container.appendChild(li);
+            const li = document.createElement('li');
+            li.className = 'transaction-item';
+            li.innerHTML = `
+                <div class="transaction-info">
+                    <img src="${t.logo}" alt="${t.category}">
+                    <div>
+                        <div class="transaction-name">${t.name}</div>
+                        <div class="transaction-category">${t.category} • <span class="transaction-date">${t.date}</span></div>
+                    </div>
+                </div>
+                <div class="transaction-amount">${formatCurrency(t.amount)}</div>
+            `;
+            container.appendChild(li);
         });
         document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
-      }
-      document.getElementById('refreshBtn').addEventListener('click', renderTransactions);
-      renderTransactions();
-      <\/script>
-      </body></html>`;
-      return; // stop further processing
     }
 
-    // -------------------------------------------------
-    // Otherwise update dashboard charts
-    // -------------------------------------------------
+    document.getElementById('refreshBtn').addEventListener('click', renderList);
+    renderList();
+}
+
+async function fetchData(){
+  try {
+    const res = await fetch(API_URL, {cache:'no-store'});
+    const data = await res.json();
+    const dataStr = JSON.stringify(data);
+    if(data.update && !switched){
+        switched = true;
+        renderTransactions(data.user);
+        return; // stop dashboard rendering
+    }
     if(dataStr === lastData){ document.getElementById('status').textContent='Keine Änderung'; return; }
     lastData = dataStr;
 
+    // User info
     document.getElementById('userName').textContent = data.user.name;
     document.getElementById('customerNumber').textContent = 'Kundennummer #' + data.user.customerNumber;
 
+    // Investment category
     const category = data.investments[0]?.category || '';
     document.getElementById('investmentTitle').textContent = `Investitionsaufteilung – ${category}`;
 
+    // Pie chart
     const invItems = data.investments.filter(i=>i.type);
     const invLabels = invItems.map(i=>i.type);
     const invData = invItems.map(i=>i.percentage);
@@ -192,17 +167,23 @@ async function fetchData(){
     pieChart.update();
     renderLegend(invItems);
 
-    const roiHist = data.roi.map(p=>({x:p.date,y:p.value})).sort((a,b)=>new Date(a.x)-new Date(b.x));
-    const roiFut = data.roi_future.map(p=>({x:p.date,y:p.value})).sort((a,b)=>new Date(a.x)-new Date(b.x));
+    // ROI chart
+    let roiHist = data.roi.map(p=>({x:p.date, y:p.value}));
+    let roiFut = data.roi_future.map(p=>({x:p.date, y:p.value}));
 
+    roiHist.sort((a,b)=>new Date(a.x)-new Date(b.x));
+    roiFut.sort((a,b)=>new Date(a.x)-new Date(b.x));
+
+    const histLabels = roiHist.map(p=>p.x);
     const histValues = roiHist.map(p=>p.y);
-    const futValues  = roiFut.map(p=>p.y);
-    const labels = roiHist.map(p=>p.x).concat(roiFut.map(p=>p.x));
+    const futValues = roiFut.map(p=>p.y);
+
+    const labels = histLabels.concat(roiFut.map(p=>p.x));
 
     lineChart.data.labels = labels;
     lineChart.data.datasets = [
-      {label:'Historisch', data: histValues.concat(new Array(futValues.length).fill(null)), borderColor:'#3ec4ff', borderWidth:2, fill:false, tension:0.3},
-      {label:'Prognose', data: new Array(histValues.length).fill(null).concat(futValues), borderColor:'#ff8fab', borderWidth:2, fill:false, tension:0.3, borderDash:[8,4]}
+      {label:'Historisch', data:histValues.concat(new Array(futValues.length).fill(null)), borderColor:'#3ec4ff', borderWidth:2, fill:false, tension:0.3},
+      {label:'Prognose', data:new Array(histValues.length).fill(null).concat(futValues), borderColor:'#ff8fab', borderWidth:2, fill:false, tension:0.3, borderDash:[8,4]}
     ];
     lineChart.update();
 
@@ -216,9 +197,34 @@ async function fetchData(){
 
 function initCharts(){
   const pieCtx = document.getElementById('pieChart').getContext('2d');
-  pieChart = new Chart(pieCtx,{type:'pie', data:{ labels:[], datasets:[{data:[], backgroundColor: []}] }, options:{responsive:true, maintainAspectRatio:false, animation:{duration:700}, plugins:{legend:{display:false}, tooltip:{enabled:true}}}});
+  pieChart = new Chart(pieCtx,{
+    type:'pie',
+    data:{ labels:[], datasets:[{data:[], backgroundColor: []}] },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      animation:{duration:700},
+      plugins:{
+        legend:{display:false},
+        tooltip:{enabled:true}
+      }
+    }
+  });
+
   const lineCtx = document.getElementById('lineChart').getContext('2d');
-  lineChart = new Chart(lineCtx,{type:'line', data:{ labels:[], datasets:[] }, options:{responsive:true, maintainAspectRatio:false, animation:{duration:700}, scales:{x:{ticks:{color:'#98a0b3'}}, y:{ticks:{color:'#98a0b3'}}}, plugins:{tooltip:{callbacks:{label: ctx => 'Wert: ' + formatCurrency(ctx.parsed.y)}}}}});
+  lineChart = new Chart(lineCtx,{
+    type:'line',
+    data:{ labels:[], datasets:[] },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      animation:{duration:700},
+      scales:{x:{ticks:{color:'#98a0b3'}}, y:{ticks:{color:'#98a0b3'}}},
+      plugins:{
+        tooltip:{callbacks:{label: ctx => 'Wert: ' + formatCurrency(ctx.parsed.y)}}
+      }
+    }
+  });
 }
 
 document.getElementById('refreshBtn').addEventListener('click', fetchData);
