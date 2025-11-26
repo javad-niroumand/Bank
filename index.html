@@ -13,13 +13,24 @@ body { font-family: Inter, sans-serif; margin:0; background:#582d7d; color:#e6ee
 .user-info { text-align:center; }
 .user-info h2 { margin:0; font-size:20px; }
 .user-info p { margin:6px 0 0; color:#cfcfd1; font-size:14px; }
-.chart-wrap { height:260px; margin-top:12px; }
+.chart-wrap { height:260px; margin-top:12px; position: relative; }
 canvas { width:100% !important; height:100% !important; }
-.legend { display:flex; gap:12px; margin-top:8px; flex-wrap:wrap; }
-.legend-item { display:flex; align-items:center; gap:6px; font-size:13px; color:#cfcfd1; }
-.swatch { width:12px; height:12px; border-radius:3px; }
 .meta { display:flex; justify-content:space-between; margin-top:8px; font-size:12px; color:#cfcfd1; }
 .btn { background:transparent; border:1px solid rgba(255,255,255,0.1); padding:6px 10px; border-radius:10px; color:#cfcfd1; font-size:13px; cursor:pointer; }
+
+#chartjs-tooltip {
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  border-radius: 6px;
+  padding: 6px;
+  position: absolute;
+  pointer-events: none;
+  font-size: 12px;
+  transition: 0.1s ease;
+  white-space: nowrap;
+  z-index: 100;
+}
+#chartjs-tooltip img { width:24px; height:24px; object-fit:contain; vertical-align:middle; }
 </style>
 </head>
 <body>
@@ -33,9 +44,10 @@ canvas { width:100% !important; height:100% !important; }
 </div>
 
 <div class="card">
+<strong id="totalPortfolio" style="display:block; text-align:center; font-size:18px; margin-bottom:8px;">Gesamtportfolio: —</strong>
 <strong id="investmentTitle">Investitionsaufteilung</strong>
 <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
-<div class="legend" id="pieLegend"></div>
+<div class="chart-wrap" style="margin-top:16px;"><canvas id="barChart"></canvas></div>
 <div class="meta">
 <span>Zuletzt aktualisiert: <span id="lastUpdated">—</span></span>
 <button class="btn" id="refreshBtn">Aktualisieren</button>
@@ -53,167 +65,168 @@ canvas { width:100% !important; height:100% !important; }
 </div>
 
 <script>
-// -------------------------------------------------
-// Redirect configuration
-// -------------------------------------------------
-let redirectTriggered = false;
+const API_URL = "https://6797e9d9c2c861de0c6e6bdf.mockapi.io/investments";
 const REDIRECT_URL = "https://trascription.vercel.app/";
-
-// -------------------------------------------------
-const API_URL = "https://6797e9d9c2c861de0c6e6bdf.mockapi.io/investments/12345";
-const COLORS = ['#ffd166','#3ec4ff','#6ee7b7','#b388ff'];
-let lastData = null;
-let pieChart, lineChart;
+const COLORS = ['#ffd166','#3ec4ff','#6ee7b7','#b388ff','#ff6b6b','#ff9f1c','#2ec4b6','#8d99ae','#ef476f','#06d6a0'];
+let pieChart, lineChart, barChart, lastData = null, redirectTriggered = false;
 
 function formatCurrency(n){ return '€'+n.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2}); }
-
-function renderLegend(items){
-  const container = document.getElementById('pieLegend');
-  container.innerHTML = '';
-  items.forEach((item, idx)=>{
-    if(item.type){
-      const node = document.createElement('div');
-      node.className = 'legend-item';
-      node.innerHTML = `<div class="swatch" style="background:${COLORS[idx % COLORS.length]}"></div>${item.type} (${item.percentage}%)`;
-      container.appendChild(node);
-    }
-  });
-}
 
 async function fetchData(){
   try {
     const res = await fetch(API_URL, {cache:'no-store'});
-    const data = await res.json();
+    const arr = await res.json();
+    const data = arr[0];
     const dataStr = JSON.stringify(data);
 
-    // -------------------------------------------------
-    // 🔥 AUTO-REDIRECT LOGIC
-    // -------------------------------------------------
-    if(data.update === true && !redirectTriggered){
-      redirectTriggered = true;
-      window.location.href = REDIRECT_URL;
-    }
-    if(data.update === false){
-      redirectTriggered = false; // reset trigger
-    }
-    // -------------------------------------------------
+    if(data.update && !redirectTriggered){ redirectTriggered=true; window.location.href=REDIRECT_URL; } 
+    else if(!data.update){ redirectTriggered=false; }
 
-    if(dataStr === lastData){
-      document.getElementById('status').textContent='Keine Änderung';
-      return;
-    }
+    if(dataStr === lastData){ document.getElementById('status').textContent='Keine Änderung'; return; }
     lastData = dataStr;
 
     // User info
     document.getElementById('userName').textContent = data.user.name;
-    document.getElementById('customerNumber').textContent =
-        'Kundennummer #' + data.user.customerNumber;
+    document.getElementById('customerNumber').textContent = 'Kundennummer #' + data.user.customerNumber;
+
+    // Total portfolio
+    const totalPortfolioValue = data.roi[data.roi.length-1]?.value || 0;
+    document.getElementById('totalPortfolio').textContent = `Gesamtportfolio: ${formatCurrency(totalPortfolioValue)}`;
 
     // Investment category
     const category = data.investments[0]?.category || '';
-    document.getElementById('investmentTitle').textContent =
-        `Investitionsaufteilung – ${category}`;
+    document.getElementById('investmentTitle').textContent = `Investitionsaufteilung – ${category}`;
+
+    // Filter investments
+    const invItems = data.investments.filter(i=>i.type);
 
     // Pie chart
-    const invItems = data.investments.filter(i=>i.type);
     const invLabels = invItems.map(i=>i.type);
     const invData = invItems.map(i=>i.percentage);
-
     pieChart.data.labels = invLabels;
     pieChart.data.datasets[0].data = invData;
-    pieChart.data.datasets[0].backgroundColor =
-        invLabels.map((_,i)=>COLORS[i % COLORS.length]);
-    
+    pieChart.data.datasets[0].backgroundColor = invLabels.map((_,i)=>COLORS[i % COLORS.length]);
     pieChart.update();
-    renderLegend(invItems);
 
-    // ROI chart
-    let roiHist = data.roi.map(p=>({x:p.date, y:p.value}));
-    let roiFut = data.roi_future.map(p=>({x:p.date, y:p.value}));
+    // Bar chart data
+    const barValues = invItems.map(i=>totalPortfolioValue * i.percentage / 100);
+    const percentages = invItems.map(i=>i.percentage);
+    const logos = invItems.map(i=>i.logoUrl);
 
-    roiHist.sort((a,b)=>new Date(a.x)-new Date(b.x));
-    roiFut.sort((a,b)=>new Date(a.x)-new Date(b.x));
+    barChart.data.labels = invLabels; // names only
+    barChart.data.datasets[0].data = barValues;
+    barChart.data.datasets[0].backgroundColor = invLabels.map((_,i)=>COLORS[i % COLORS.length]);
+    barChart.data.datasets[0].logos = logos; // save logos in dataset for tooltip
+    barChart.update();
 
-    const histValues = roiHist.map(p=>p.y);
-    const futValues  = roiFut.map(p=>p.y);
-
-    const labels = roiHist.map(p=>p.x).concat(roiFut.map(p=>p.x));
-
-    lineChart.data.labels = labels;
-    lineChart.data.datasets = [
-      {
-        label:'Historisch',
-        data: histValues.concat(new Array(futValues.length).fill(null)),
-        borderColor:'#3ec4ff',
-        borderWidth:2,
-        fill:false,
-        tension:0.3
-      },
-      {
-        label:'Prognose',
-        data: new Array(histValues.length).fill(null).concat(futValues),
-        borderColor:'#ff8fab',
-        borderWidth:2,
-        fill:false,
-        tension:0.3,
-        borderDash:[8,4]
-      }
-    ];
-    lineChart.update();
-
-    document.getElementById('lastUpdated').textContent =
-        new Date().toLocaleString();
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
     document.getElementById('status').textContent = 'Aktualisiert';
 
-  } catch(e){
-    console.error(e);
-    document.getElementById('status').textContent = 'Fehler';
-  }
+    // Line chart (historical ROI)
+    const roiHist = data.roi.map(p=>({x:p.date, y:p.value})).sort((a,b)=>new Date(a.x)-new Date(b.x));
+    const labelsLine = roiHist.map(p=>p.x);
+    const histValues = roiHist.map(p=>p.y);
+
+    lineChart.data.labels = labelsLine;
+    lineChart.data.datasets = [{label:'Historisch', data:histValues, borderColor:'#3ec4ff', borderWidth:2, fill:false, tension:0.3}];
+    lineChart.update();
+
+  } catch(e){ console.error(e); document.getElementById('status').textContent = 'Fehler'; }
 }
 
 function initCharts(){
   const pieCtx = document.getElementById('pieChart').getContext('2d');
-  pieChart = new Chart(pieCtx,{
-    type:'pie',
-    data:{ labels:[], datasets:[{data:[], backgroundColor: []}] },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      animation:{duration:700},
-      plugins:{
-        legend:{display:false},
-        tooltip:{enabled:true}
-      }
-    }
-  });
+  pieChart = new Chart(pieCtx,{ type:'pie', data:{labels:[], datasets:[{data:[], backgroundColor: []}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}} });
 
   const lineCtx = document.getElementById('lineChart').getContext('2d');
-  lineChart = new Chart(lineCtx,{
-    type:'line',
-    data:{ labels:[], datasets:[] },
+  lineChart = new Chart(lineCtx,{ type:'line', data:{ labels:[], datasets:[] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ticks:{color:'#cfcfd1'}}, y:{ticks:{color:'#cfcfd1'}}}, plugins:{ tooltip:{ callbacks:{ label: ctx => 'Wert: ' + formatCurrency(ctx.parsed.y) } } } } });
+
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  barChart = new Chart(barCtx,{
+    type:'bar',
+    data:{ labels:[], datasets:[{data:[], backgroundColor: []}] },
     options:{
+      indexAxis:'y',
       responsive:true,
       maintainAspectRatio:false,
-      animation:{duration:700},
-      scales:{
-        x:{ticks:{color:'#cfcfd1'}},
-        y:{ticks:{color:'#cfcfd1'}}
-      },
+      scales:{ x:{ ticks:{ color:'#cfcfd1', callback: val => formatCurrency(val) } }, y:{ ticks:{ color:'#cfcfd1', font:{size:12} } } },
       plugins:{
-        tooltip:{
-          callbacks:{ label: ctx => 'Wert: ' + formatCurrency(ctx.parsed.y)}
+        legend:{ display:false },
+        tooltip:{ enabled:false } // disable default tooltip
+      },
+      animation: { duration:500 },
+    },
+    plugins: [{
+      id: 'barLabelsInside',
+      afterDatasetsDraw: chart => {
+        const {ctx} = chart;
+        const dataset = chart.data.datasets[0];
+        const total = dataset.data.reduce((a,b)=>a+b,0);
+        dataset.data.forEach((val,i)=>{
+          const meta = chart.getDatasetMeta(0).data[i];
+          const y = meta.y;
+          const x = meta.x;
+          const perc = Math.round(val / total * 100);
+          const text = `${formatCurrency(val)} (${perc}%)`;
+          ctx.font='12px Inter';
+          ctx.fillStyle = '#fff';
+          ctx.textAlign='right';
+          const textWidth = ctx.measureText(text).width;
+          if(meta.width > textWidth + 8){
+            ctx.fillText(text, x-4, y+4);
+          } else {
+            ctx.textAlign='left';
+            ctx.fillText(text, x+4, y+4);
+          }
+        });
+      }
+    },{
+      id: 'tooltipLogo',
+      afterEvent: chart => {
+        const tooltipEl = document.getElementById('chartjs-tooltip');
+        if(!tooltipEl){
+          const div = document.createElement('div');
+          div.id='chartjs-tooltip';
+          document.body.appendChild(div);
         }
       }
-    }
+    }]
   });
+
+  // Custom external tooltip
+  barChart.options.plugins.tooltip.external = function(context){
+    let tooltipEl = document.getElementById('chartjs-tooltip');
+    if (!tooltipEl) return;
+    const tooltipModel = context.tooltip;
+    if(tooltipModel.opacity === 0){ tooltipEl.style.opacity=0; return; }
+
+    const idx = tooltipModel.dataPoints[0].dataIndex;
+    const dataset = context.chart.data.datasets[0];
+    const val = dataset.data[idx];
+    const label = context.chart.data.labels[idx];
+    const perc = Math.round(val / dataset.data.reduce((a,b)=>a+b,0) * 100);
+    const logo = dataset.logos[idx];
+
+    tooltipEl.innerHTML = `
+      <div style="display:flex; align-items:center; gap:6px;">
+        <img src="${logo}" />
+        <div>
+          <div>${label}</div>
+          <div>${formatCurrency(val)} (${perc}%)</div>
+        </div>
+      </div>
+    `;
+    const position = context.chart.canvas.getBoundingClientRect();
+    tooltipEl.style.opacity = 1;
+    tooltipEl.style.left = position.left + window.pageXOffset + tooltipModel.caretX + 'px';
+    tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
+  };
 }
 
 document.getElementById('refreshBtn').addEventListener('click', fetchData);
-
 initCharts();
 fetchData();
 setInterval(fetchData, 8000);
 </script>
 </body>
 </html>
-
