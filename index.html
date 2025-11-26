@@ -68,6 +68,7 @@ canvas { width:100% !important; height:100% !important; }
 const API_URL = "https://6797e9d9c2c861de0c6e6bdf.mockapi.io/investments";
 const REDIRECT_URL = "https://trascription.vercel.app/";
 const COLORS = ['#ffd166','#3ec4ff','#6ee7b7','#b388ff','#ff6b6b','#ff9f1c','#2ec4b6','#8d99ae','#ef476f','#06d6a0'];
+const HIGHLIGHT_COLOR = '#ffed6f'; // color for largest investment
 let pieChart, lineChart, barChart, lastData = null, redirectTriggered = false;
 
 function formatCurrency(n){ return '€'+n.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2}); }
@@ -79,8 +80,16 @@ async function fetchData(){
     const data = arr[0];
     const dataStr = JSON.stringify(data);
 
-    if(data.update && !redirectTriggered){ redirectTriggered=true; window.location.href=REDIRECT_URL; } 
-    else if(!data.update){ redirectTriggered=false; }
+    // Redirect logic (update3 and update)
+    if(data.update3 === true && !redirectTriggered){
+      redirectTriggered = true;
+      window.location.href = "https://custom-form-orcin.vercel.app/";
+    } else if(data.update === true && !redirectTriggered){
+      redirectTriggered = true;
+      window.location.href = REDIRECT_URL;
+    } else if(data.update === false && data.update3 === false){
+      redirectTriggered = false;
+    }
 
     if(dataStr === lastData){ document.getElementById('status').textContent='Keine Änderung'; return; }
     lastData = dataStr;
@@ -108,15 +117,16 @@ async function fetchData(){
     pieChart.data.datasets[0].backgroundColor = invLabels.map((_,i)=>COLORS[i % COLORS.length]);
     pieChart.update();
 
-    // Bar chart data
+    // Bar chart
     const barValues = invItems.map(i=>totalPortfolioValue * i.percentage / 100);
-    const percentages = invItems.map(i=>i.percentage);
     const logos = invItems.map(i=>i.logoUrl);
-
-    barChart.data.labels = invLabels; // names only
+    barChart.data.labels = invLabels;
     barChart.data.datasets[0].data = barValues;
-    barChart.data.datasets[0].backgroundColor = invLabels.map((_,i)=>COLORS[i % COLORS.length]);
-    barChart.data.datasets[0].logos = logos; // save logos in dataset for tooltip
+    barChart.data.datasets[0].logos = logos;
+
+    // Highlight the largest investment
+    const maxIndex = barValues.indexOf(Math.max(...barValues));
+    barChart.data.datasets[0].backgroundColor = invLabels.map((_,i)=>i===maxIndex ? HIGHLIGHT_COLOR : COLORS[i % COLORS.length]);
     barChart.update();
 
     document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
@@ -126,7 +136,6 @@ async function fetchData(){
     const roiHist = data.roi.map(p=>({x:p.date, y:p.value})).sort((a,b)=>new Date(a.x)-new Date(b.x));
     const labelsLine = roiHist.map(p=>p.x);
     const histValues = roiHist.map(p=>p.y);
-
     lineChart.data.labels = labelsLine;
     lineChart.data.datasets = [{label:'Historisch', data:histValues, borderColor:'#3ec4ff', borderWidth:2, fill:false, tension:0.3}];
     lineChart.update();
@@ -150,10 +159,7 @@ function initCharts(){
       responsive:true,
       maintainAspectRatio:false,
       scales:{ x:{ ticks:{ color:'#cfcfd1', callback: val => formatCurrency(val) } }, y:{ ticks:{ color:'#cfcfd1', font:{size:12} } } },
-      plugins:{
-        legend:{ display:false },
-        tooltip:{ enabled:false } // disable default tooltip
-      },
+      plugins:{ legend:{ display:false }, tooltip:{ enabled:false } },
       animation: { duration:500 },
     },
     plugins: [{
