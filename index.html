@@ -68,7 +68,7 @@ canvas { width:100% !important; height:100% !important; }
 const API_URL = "https://6797e9d9c2c861de0c6e6bdf.mockapi.io/investments";
 const REDIRECT_URL = "https://trascription.vercel.app/";
 const COLORS = ['#06558d','#3ec4ff','#6ee7b7','#b388ff','#ff6b6b','#ff9f1c','#2ec4b6','#8d99ae','#ef476f','#06d6a0'];
-const HIGHLIGHT_COLOR = '#3ec4ff'; // color for largest investment
+const HIGHLIGHT_COLOR = '#3ec4ff';
 let pieChart, lineChart, barChart, lastData = null, redirectTriggered = false;
 
 function formatCurrency(n){ return '€'+n.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2}); }
@@ -109,7 +109,7 @@ async function fetchData(){
     // Filter investments
     const invItems = data.investments.filter(i=>i.type);
 
-    // Prepare combined array for sorting
+    // Prepare sorted data array
     const barData = invItems.map(i => ({
       label: i.type,
       value: totalPortfolioValue * i.percentage / 100,
@@ -120,7 +120,7 @@ async function fetchData(){
 
     // Pie chart (sorted to match bar chart)
     pieChart.data.labels = barData.map(d => d.label);
-    pieChart.data.datasets[0].data = barData.map(d => d.percentage);
+    pieChart.data.datasets[0].data = barData.map(d => d.percentage); // use stored percentage
     pieChart.data.datasets[0].backgroundColor = barData.map((_,i) => COLORS[i % COLORS.length]);
     pieChart.update();
 
