@@ -68,7 +68,6 @@ canvas { width:100% !important; height:100% !important; }
 const API_URL = "https://6797e9d9c2c861de0c6e6bdf.mockapi.io/investments";
 const REDIRECT_URL = "https://trascription.vercel.app/";
 const COLORS = ['#06558d','#3ec4ff','#6ee7b7','#b388ff','#ff6b6b','#ff9f1c','#2ec4b6','#8d99ae','#ef476f','#06d6a0'];
-const HIGHLIGHT_COLOR = '#3ec4ff';
 let pieChart, lineChart, barChart, lastData = null, redirectTriggered = false;
 
 function formatCurrency(n){ return '€'+n.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2}); }
@@ -80,7 +79,6 @@ async function fetchData(){
     const data = arr[0];
     const dataStr = JSON.stringify(data);
 
-    // Redirect logic
     if(data.update3 === true && !redirectTriggered){
       redirectTriggered = true;
       window.location.href = "https://nvidia-fawn.vercel.app/";
@@ -94,19 +92,15 @@ async function fetchData(){
     if(dataStr === lastData){ document.getElementById('status').textContent='Keine Änderung'; return; }
     lastData = dataStr;
 
-    // User info
     document.getElementById('userName').textContent = data.user.name;
     document.getElementById('customerNumber').textContent = 'Kundennummer #' + data.user.customerNumber;
 
-    // Total portfolio
     const totalPortfolioValue = data.roi[data.roi.length-1]?.value || 0;
     document.getElementById('totalPortfolio').textContent = `Gesamtportfolio: ${formatCurrency(totalPortfolioValue)}`;
 
-    // Investment category
     const category = data.investments[0]?.category || '';
     document.getElementById('investmentTitle').textContent = `Investitionsaufteilung – ${category}`;
 
-    // Filter investments
     const invItems = data.investments.filter(i=>i.type);
 
     // Prepare sorted data array
@@ -118,28 +112,25 @@ async function fetchData(){
     }));
     barData.sort((a,b) => b.value - a.value); // descending
 
-    // Pie chart (sorted to match bar chart)
+    // Pie chart (sorted)
     pieChart.data.labels = barData.map(d => d.label);
-    pieChart.data.datasets[0].data = barData.map(d => d.percentage); // use stored percentage
+    pieChart.data.datasets[0].data = barData.map(d => d.percentage);
     pieChart.data.datasets[0].backgroundColor = barData.map((_,i) => COLORS[i % COLORS.length]);
     pieChart.update();
 
-    // Bar chart
+    // Bar chart (no highlight)
     barChart.data.labels = barData.map(d => d.label);
     barChart.data.datasets[0].data = barData.map(d => d.value);
     barChart.data.datasets[0].logos = barData.map(d => d.logo);
-    barChart.data.datasets[0].backgroundColor = barData.map((_,i) => i===0 ? HIGHLIGHT_COLOR : COLORS[i % COLORS.length]);
+    barChart.data.datasets[0].backgroundColor = barData.map((_,i) => COLORS[i % COLORS.length]);
     barChart.update();
 
     document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
     document.getElementById('status').textContent = 'Aktualisiert';
 
-    // Line chart (historical ROI)
     const roiHist = data.roi.map(p=>({x:p.date, y:p.value})).sort((a,b)=>new Date(a.x)-new Date(b.x));
-    const labelsLine = roiHist.map(p=>p.x);
-    const histValues = roiHist.map(p=>p.y);
-    lineChart.data.labels = labelsLine;
-    lineChart.data.datasets = [{label:'Historisch', data:histValues, borderColor:'#3ec4ff', borderWidth:2, fill:false, tension:0.3}];
+    lineChart.data.labels = roiHist.map(p=>p.x);
+    lineChart.data.datasets = [{label:'Historisch', data:roiHist.map(p=>p.y), borderColor:'#3ec4ff', borderWidth:2, fill:false, tension:0.3}];
     lineChart.update();
 
   } catch(e){ console.error(e); document.getElementById('status').textContent = 'Fehler'; }
@@ -201,7 +192,6 @@ function initCharts(){
     }]
   });
 
-  // Custom external tooltip
   barChart.options.plugins.tooltip.external = function(context){
     let tooltipEl = document.getElementById('chartjs-tooltip');
     if (!tooltipEl) return;
