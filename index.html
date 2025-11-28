@@ -89,7 +89,10 @@ async function fetchData(){
       redirectTriggered = false;
     }
 
-    if(dataStr === lastData){ document.getElementById('status').textContent='Keine Änderung'; return; }
+    if(dataStr === lastData){ 
+      document.getElementById('status').textContent='Keine Änderung'; 
+      return; 
+    }
     lastData = dataStr;
 
     document.getElementById('userName').textContent = data.user.name;
@@ -103,22 +106,19 @@ async function fetchData(){
 
     const invItems = data.investments.filter(i=>i.type);
 
-    // Prepare sorted data array
     const barData = invItems.map(i => ({
       label: i.type,
       value: totalPortfolioValue * i.percentage / 100,
       logo: i.logoUrl,
       percentage: i.percentage
     }));
-    barData.sort((a,b) => b.value - a.value); // descending
+    barData.sort((a,b) => b.value - a.value);
 
-    // Pie chart (sorted)
     pieChart.data.labels = barData.map(d => d.label);
     pieChart.data.datasets[0].data = barData.map(d => d.percentage);
     pieChart.data.datasets[0].backgroundColor = barData.map((_,i) => COLORS[i % COLORS.length]);
     pieChart.update();
 
-    // Bar chart (no highlight)
     barChart.data.labels = barData.map(d => d.label);
     barChart.data.datasets[0].data = barData.map(d => d.value);
     barChart.data.datasets[0].logos = barData.map(d => d.logo);
@@ -130,18 +130,46 @@ async function fetchData(){
 
     const roiHist = data.roi.map(p=>({x:p.date, y:p.value})).sort((a,b)=>new Date(a.x)-new Date(b.x));
     lineChart.data.labels = roiHist.map(p=>p.x);
-    lineChart.data.datasets = [{label:'Historisch', data:roiHist.map(p=>p.y), borderColor:'#3ec4ff', borderWidth:2, fill:false, tension:0.3}];
+    lineChart.data.datasets = [{
+      label:'Historisch',
+      data:roiHist.map(p=>p.y),
+      borderColor:'#3ec4ff',
+      borderWidth:2,
+      fill:false,
+      tension:0.3
+    }];
     lineChart.update();
 
-  } catch(e){ console.error(e); document.getElementById('status').textContent = 'Fehler'; }
+  } catch(e){ 
+    console.error(e); 
+    document.getElementById('status').textContent = 'Fehler'; 
+  }
 }
 
 function initCharts(){
   const pieCtx = document.getElementById('pieChart').getContext('2d');
-  pieChart = new Chart(pieCtx,{ type:'pie', data:{labels:[], datasets:[{data:[], backgroundColor: []}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}} });
+  pieChart = new Chart(pieCtx,{
+    type:'pie',
+    data:{labels:[], datasets:[{data:[], backgroundColor: []}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}}
+  });
 
   const lineCtx = document.getElementById('lineChart').getContext('2d');
-  lineChart = new Chart(lineCtx,{ type:'line', data:{ labels:[], datasets:[] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ticks:{color:'#cfcfd1'}}, y:{ticks:{color:'#cfcfd1'}}}, plugins:{ tooltip:{ callbacks:{ label: ctx => 'Wert: ' + formatCurrency(ctx.parsed.y) } } } } });
+  lineChart = new Chart(lineCtx,{
+    type:'line',
+    data:{ labels:[], datasets:[] },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      scales:{
+        x:{ticks:{color:'#cfcfd1'}},
+        y:{ticks:{color:'#cfcfd1'}}
+      },
+      plugins:{
+        tooltip:{ callbacks:{ label: ctx => 'Wert: ' + formatCurrency(ctx.parsed.y) } }
+      }
+    }
+  });
 
   const barCtx = document.getElementById('barChart').getContext('2d');
   barChart = new Chart(barCtx,{
@@ -151,7 +179,24 @@ function initCharts(){
       indexAxis:'y',
       responsive:true,
       maintainAspectRatio:false,
-      scales:{ x:{ ticks:{ color:'#cfcfd1', callback: val => formatCurrency(val) } }, y:{ ticks:{ color:'#cfcfd1', font:{size:12} } } },
+      scales:{
+        x:{ 
+          ticks:{ 
+            color:'#cfcfd1', 
+            callback: val => formatCurrency(val) 
+          } 
+        },
+        y:{
+          ticks:{
+            color:'#cfcfd1',
+            font:{ size:12 },
+            callback: function(value, index){
+              const fullLabel = this.getLabelForValue(index);
+              return fullLabel.split(" ")[0];   // ← SHOW ONLY FIRST WORD
+            }
+          }
+        }
+      },
       plugins:{ legend:{ display:false }, tooltip:{ enabled:false } },
       animation: { duration:500 },
     },
